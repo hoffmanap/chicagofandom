@@ -262,10 +262,12 @@
             const mapRef = useRef(null);
 
             useEffect(() => {
+                // ADDED RENDERER CANVAS: Force high performance canvas rendering for large block datasets
                 mapRef.current = L.map('leaflet-map-element', {
                     center: [41.8781, -87.6298],
                     zoom: 11,
-                    zoomControl: false
+                    zoomControl: false,
+                    renderer: L.canvas() 
                 });
 
                 L.control.zoom({ position: 'topright' }).addTo(mapRef.current);
@@ -291,7 +293,6 @@
                 L.marker(WRIGLEY_COORDS, { icon: cubsIcon }).addTo(mapRef.current);
                 L.marker(RATE_FIELD_COORDS, { icon: soxIcon }).addTo(mapRef.current);
 
-                // Target the 4 fragmented data files
                 const fileUrls = [
                     './chicago_baseball_map_1.geojson',
                     './chicago_baseball_map_2.geojson',
@@ -338,7 +339,6 @@
                     });
                 }
 
-                // Fire parallel downloads for async speed optimizations
                 fileUrls.forEach(url => {
                     fetch(url)
                         .then(res => {
@@ -351,7 +351,6 @@
                             runningTotalFeatures += geojsonData.features.length;
                             setTotalBlocks(runningTotalFeatures);
 
-                            // Progressively render onto map frame as soon as each array chunk arrives
                             L.geoJSON(geojsonData, {
                                 style: styleFeature,
                                 onEachFeature: onEachFeature
@@ -390,8 +389,8 @@
                         isLoading={isLoading}
                         loadedChunks={loadedChunks}
                     />
+                    {/* FIXED CONTAINER: Removed the duplicate HTML id element line */}
                     <div className="flex-1 h-full relative">
-                        <div id="leaflet-map-element"></div>
                         <BaseballMap 
                             onFeatureHover={handleFeatureHover} 
                             setTotalBlocks={setTotalBlocks} 
