@@ -66,29 +66,45 @@
             soxBlack: '#111111',
             soxSilver: '#A4A9AD',
             soxDarkGrey: '#27251F',
-            neutralGrey: '#475569',
-            tossUp: '#f8fafc'
+            neutralGrey: '#64748b',
+            tossUp: '#475569'
         };
 
         const WRIGLEY_COORDS = [41.9484, -87.6553];
         const RATE_FIELD_COORDS = [41.8299, -87.6337];
 
+        // Safe helper to normalize any input format (decimal vs 0-100 percentage) to a clean 0.0 - 1.0 fraction
+        function normalizeShare(val) {
+            const parsed = parseFloat(val);
+            if (isNaN(parsed)) return 0;
+            return parsed > 1.0 ? parsed / 100 : parsed;
+        }
+
         function getFeatureColor(cubsShare) {
-            if (cubsShare === 0.5) return TEAM_COLORS.tossUp;
+            const normCubs = normalizeShare(cubsShare);
+            if (normCubs === 0.5) return '#cbd5e1'; // Light grey toss-up on the light map background
             
-            if (cubsShare > 0.5) {
-                if (cubsShare < 0.65) return '#60a5fa'; 
-                if (cubsShare < 0.85) return '#2563eb'; 
-                return TEAM_COLORS.cubsBlue;            
+            if (normCubs > 0.5) {
+                if (normCubs < 0.65) return '#93c5fd'; // Light blue
+                if (normCubs < 0.85) return '#3b82f6'; // Mid blue
+                return TEAM_COLORS.cubsBlue;            // Deep Cubs blue
             } else {
-                const soxShare = 1 - cubsShare;
-                if (soxShare < 0.65) return '#94a3b8';  
-                if (soxShare < 0.85) return '#475569';  
-                return TEAM_COLORS.soxBlack;            
+                const soxShare = 1 - normCubs;
+                if (soxShare < 0.65) return '#94a3b8';  // Slate grey
+                if (soxShare < 0.85) return '#475569';  // Dark steel grey
+                return TEAM_COLORS.soxBlack;            // Solid White Sox black
             }
         }
 
         function ScoreboardPanel({ activeBlock, totalLoadedBlocks, isLoading, loadedChunks }) {
+            // Compute safely normalized fractions for UI presentation elements
+            const { cubsFract, soxFract } = useMemo(() => {
+                if (!activeBlock) return { cubsFract: 0, soxFract: 0 };
+                const c = normalizeShare(activeBlock.cubs_share);
+                const s = normalizeShare(activeBlock.sox_share);
+                return { cubsFract: c, soxFract: s };
+            }, [activeBlock]);
+
             return (
                 <div className="w-full lg:w-96 xl:w-[420px] bg-slate-950 border-r border-slate-800 flex flex-col h-full overflow-y-auto">
                     {/* Header Banner - Baseball Marquee Theme */}
@@ -143,18 +159,18 @@
                                 <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between">
                                     <span className="text-xs text-slate-400 font-medium">Territorial Rule:</span>
                                     <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                                        activeBlock.cubs_share > 0.5 
+                                        cubsFract > 0.5 
                                             ? 'bg-blue-950 text-blue-400 border border-blue-900' 
-                                            : activeBlock.sox_share > 0.5 
+                                            : soxFract > 0.5 
                                                 ? 'bg-zinc-900 text-zinc-300 border border-zinc-800' 
                                                 : 'bg-slate-800 text-slate-300'
                                     }`}>
-                                        {activeBlock.cubs_share > 0.5 ? '🔴 Cubs Domain' : activeBlock.sox_share > 0.5 ? '⚪ Sox Domain' : '⚔️ Toss-Up Zone'}
+                                        {cubsFract > 0.5 ? '🔴 Cubs Domain' : soxFract > 0.5 ? '⚪ Sox Domain' : '⚔️ Toss-Up Zone'}
                                     </span>
                                 </div>
                             </div>
 
-                            {/* Scoreboard Split Display */}
+                            {/* Scoreboard Split Display (Fixed: No double percentage multiplying) */}
                             <div>
                                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
                                     <span>📊</span> Fan Allegiance Split
@@ -164,13 +180,13 @@
                                     <div className="bg-slate-900 p-4 text-center border-r border-slate-800/80">
                                         <div className="stadium-font text-[11px] font-bold text-blue-400 uppercase tracking-widest mb-1">CUBS</div>
                                         <div className="scoreboard-font text-3xl font-black text-white drop-shadow">
-                                            {(activeBlock.cubs_share * 100).toFixed(1)}<span className="text-sm text-blue-500">%</span>
+                                            {(cubsFract * 100).toFixed(1)}<span className="text-sm text-blue-500">%</span>
                                         </div>
                                     </div>
                                     <div className="bg-slate-900 p-4 text-center">
                                         <div className="stadium-font text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">WHITE SOX</div>
                                         <div className="scoreboard-font text-3xl font-black text-white drop-shadow">
-                                            {(activeBlock.sox_share * 100).toFixed(1)}<span className="text-sm text-slate-500">%</span>
+                                            {(soxFract * 100).toFixed(1)}<span className="text-sm text-slate-500">%</span>
                                         </div>
                                     </div>
                                 </div>
@@ -184,21 +200,21 @@
                                     <div className="w-full h-6 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800 p-0.5">
                                         <div 
                                             className="h-full bg-gradient-to-r from-blue-700 to-blue-500 rounded-l-full transition-all duration-300 relative flex items-center justify-start pl-2"
-                                            style={{ width: `${activeBlock.cubs_share * 100}%` }}
+                                            style={{ width: `${cubsFract * 100}%` }}
                                         >
-                                            {activeBlock.cubs_share > 0.15 && (
+                                            {cubsFract > 0.15 && (
                                                 <span className="text-[10px] font-bold text-white scoreboard-font">
-                                                    {Math.round(activeBlock.cubs_share * 100)}
+                                                    {Math.round(cubsFract * 100)}
                                                 </span>
                                             )}
                                         </div>
                                         <div 
                                             className="h-full bg-gradient-to-r from-zinc-600 to-zinc-900 rounded-r-full transition-all duration-300 relative flex items-center justify-end pr-2"
-                                            style={{ width: `${activeBlock.sox_share * 100}%` }}
+                                            style={{ width: `${soxFract * 100}%` }}
                                         >
-                                            {activeBlock.sox_share > 0.15 && (
+                                            {soxFract > 0.15 && (
                                                 <span className="text-[10px] font-bold text-zinc-300 scoreboard-font">
-                                                    {Math.round(activeBlock.sox_share * 100)}
+                                                    {Math.round(soxFract * 100)}
                                                 </span>
                                             )}
                                         </div>
@@ -206,35 +222,48 @@
                                 </div>
                             </div>
 
-                            {/* Diamond Vector Display */}
+                            {/* Diamond Position Chart (Fixed: Clear absolute grid layout avoiding transform rotation shift) */}
                             <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">
                                     🏟️ Home Plate Bias Index
                                 </h3>
                                 <div className="flex items-center justify-center py-2">
-                                    <div className="relative w-28 h-28 transform rotate-45 border-2 border-slate-700/60 flex items-center justify-center bg-slate-950/40">
-                                        <div className="absolute top-0 left-0 w-3 h-3 bg-slate-700 -translate-x-1.5 -translate-y-1.5 rounded-sm" />
-                                        <div className="absolute top-0 right-0 w-3 h-3 bg-slate-700 translate-x-1.5 -translate-y-1.5 rounded-sm" />
-                                        <div className="absolute bottom-0 left-0 w-3 h-3 bg-slate-700 -translate-x-1.5 translate-y-1.5 rounded-sm" />
-                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-slate-700 translate-x-1.5 translate-y-1.5 rounded-sm" />
+                                    <div className="relative w-32 h-32 bg-slate-950/40 border border-slate-800 rounded-xl flex items-center justify-center">
                                         
+                                        {/* Pure CSS Base Diamond Lines */}
+                                        <div className="absolute w-20 h-20 border border-dashed border-slate-700 transform rotate-45" />
+                                        
+                                        {/* Physical Base Markers */}
+                                        <div className="absolute top-2 w-3 h-3 bg-slate-700 rounded-sm transform rotate-45" title="Second Base (North)" />
+                                        <div className="absolute bottom-2 w-3 h-3 bg-slate-400 rounded-sm transform rotate-45" title="Home Plate (South)" />
+                                        <div className="absolute left-2 w-3 h-3 bg-slate-700 rounded-sm transform rotate-45" title="Third Base (West)" />
+                                        <div className="absolute right-2 w-3 h-3 bg-slate-700 rounded-sm transform rotate-45" title="First Base (East)" />
+                                        
+                                        {/* Labels */}
+                                        <div className="absolute top-6 text-[9px] font-bold text-blue-400 tracking-wider uppercase">Wrigley</div>
+                                        <div className="absolute bottom-6 text-[9px] font-bold text-slate-400 tracking-wider uppercase">The Rate</div>
+
+                                        {/* Dynamic Ball - Moves directly up to Second base or down to Home plate along the vertical meridian line */}
                                         <div 
-                                            className={`w-7 h-7 rounded-full shadow-lg border flex items-center justify-center font-bold text-xs transform -rotate-45 transition-all duration-500 ${
-                                                activeBlock.cubs_share > 0.5 
+                                            className={`absolute w-7 h-7 rounded-full shadow-2xl border flex items-center justify-center font-bold text-xs transition-all duration-500 z-10 ${
+                                                cubsFract > 0.5 
                                                     ? 'bg-blue-600 text-white border-white' 
-                                                    : activeBlock.sox_share > 0.5 
+                                                    : soxFract > 0.5 
                                                         ? 'bg-zinc-100 text-slate-950 border-black' 
                                                         : 'bg-amber-400 text-slate-950 border-white'
                                             }`}
                                             style={{
-                                                transform: `rotate(-45deg) translate(${(activeBlock.cubs_share - 0.5) * 40}px, ${(activeBlock.sox_share - 0.5) * 40}px)`
+                                                // Center point is top: 50%. Cubs moves it up (towards 15%), Sox moves it down (towards 85%)
+                                                top: `${50 - (cubsFract - soxFract) * 35}%`,
+                                                left: '50%',
+                                                transform: 'translate(-50%, -50%)'
                                             }}
                                         >
                                             ⚾
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex justify-between text-[10px] font-mono text-slate-500 uppercase mt-4 px-2">
+                                <div className="flex justify-between text-[10px] font-mono text-slate-500 uppercase mt-2 px-2">
                                     <span className="text-blue-500 font-bold">North Side Bias</span>
                                     <span className="text-zinc-400 font-bold">South Side Bias</span>
                                 </div>
@@ -262,32 +291,32 @@
             const mapRef = useRef(null);
 
             useEffect(() => {
-                // ADDED RENDERER CANVAS: Force high performance canvas rendering for large block datasets
                 mapRef.current = L.map('leaflet-map-element', {
                     center: [41.8781, -87.6298],
                     zoom: 11,
                     zoomControl: false,
-                    renderer: L.canvas() 
+                    renderer: L.canvas({ tolerance: 3 })
                 });
 
                 L.control.zoom({ position: 'topright' }).addTo(mapRef.current);
 
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                // FIXED BASEMAP STYLE: Switched from dark matter to elegant CartoDB Positron light map with clear streets and labels
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                     attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
                 }).addTo(mapRef.current);
 
                 const cubsIcon = L.divIcon({
                     className: 'custom-stadium-marker',
-                    html: `<div class="flex flex-col items-center"><div class="bg-blue-600 text-white font-black border border-white rounded px-1.5 py-0.5 text-[9px] whitespace-nowrap shadow">WRIGLEY FIELD ⚾</div></div>`,
-                    iconSize: [80, 20],
-                    iconAnchor: [40, 15]
+                    html: `<div class="flex flex-col items-center"><div class="bg-blue-600 text-white font-black border border-white rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap shadow-lg font-mono">WRIGLEY FIELD ⚾</div></div>`,
+                    iconSize: [100, 24],
+                    iconAnchor: [50, 12]
                 });
 
                 const soxIcon = L.divIcon({
                     className: 'custom-stadium-marker',
-                    html: `<div class="flex flex-col items-center"><div class="bg-black text-white font-black border border-zinc-500 rounded px-1.5 py-0.5 text-[9px] whitespace-nowrap shadow">THE RATE 🏟️</div></div>`,
-                    iconSize: [80, 20],
-                    iconAnchor: [40, 15]
+                    html: `<div class="flex flex-col items-center"><div class="bg-black text-white font-black border border-zinc-400 rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap shadow-lg font-mono">THE RATE 🏟️</div></div>`,
+                    iconSize: [100, 24],
+                    iconAnchor: [50, 12]
                 });
 
                 L.marker(WRIGLEY_COORDS, { icon: cubsIcon }).addTo(mapRef.current);
@@ -308,25 +337,22 @@
                     const cubsShare = feature.properties.cubs_share || 0;
                     return {
                         fillColor: getFeatureColor(cubsShare),
-                        weight: 0.5,
-                        opacity: 0.6,
-                        color: '#ffffff',
-                        fillOpacity: 0.55
+                        weight: 0.3,
+                        opacity: 0.3,
+                        color: '#475569', // Dark grey boundaries make individual blocks pop perfectly on the light background
+                        fillOpacity: 0.65
                     };
                 }
 
                 function onEachFeature(feature, layer) {
                     layer.on({
                         mouseover: (e) => {
-                            const layer = e.target;
-                            layer.setStyle({
-                                weight: 2,
-                                color: '#F59E0B', 
-                                fillOpacity: 0.85
+                            const currentLayer = e.target;
+                            currentLayer.setStyle({
+                                weight: 2.0,
+                                color: '#D97706', // Dynamic amber outline highlighting the active parcel boundary 
+                                fillOpacity: 0.9
                             });
-                            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-                                layer.bringToFront();
-                            }
                             onFeatureHover(feature.properties);
                         },
                         mouseout: (e) => {
@@ -368,7 +394,7 @@
                 };
             }, [onFeatureHover, setTotalBlocks, setIsLoading, setLoadedChunks]);
 
-            return <div id="leaflet-map-element" className="w-full h-full bg-slate-900" />;
+            return <div id="leaflet-map-element" className="w-full h-full bg-slate-100" />;
         }
 
         function App() {
@@ -389,7 +415,6 @@
                         isLoading={isLoading}
                         loadedChunks={loadedChunks}
                     />
-                    {/* FIXED CONTAINER: Removed the duplicate HTML id element line */}
                     <div className="flex-1 h-full relative">
                         <BaseballMap 
                             onFeatureHover={handleFeatureHover} 
